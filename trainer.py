@@ -4,9 +4,11 @@ Based on https://github.com/OlgaChernytska/word2vec-pytorch
 Updated to avoid deprecated libraries like Torchtext
 """
 import os
+import time
 import json
 from typing import Any
 from dataclasses import dataclass
+# from line_profiler import profile
 import numpy as np
 import torch
 from torch import nn
@@ -22,31 +24,35 @@ class Trainer:
     epochs: int
     train_dataloader: DataLoader
     val_dataloader: DataLoader
+    model_dir: str
     criterion: Any
     optimizer: Any
     lr_scheduler: Any
-    train_steps: int = None # limit the number of steps
-    val_steps: int = None # limit the number of steps
-    checkpoint_frequency: int = None # number of steps between saves
-
+    train_steps: int = None  # limit the number of steps
+    val_steps: int = None  # limit the number of steps
+    checkpoint_frequency: int = None  # number of steps between saves
 
     def __post_init__(self):
         self.loss = {"train": [], "val": []}
-        self.model_dir = (
-            self.model.__class__.__name__ + "_data"
-        )  # e.g. CBOWModel or SkipGramModel
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.device_count() > 1:
+            self.model = nn.DataParallel(self.model)
+            print(f"Using {torch.cuda.device_count()} GPUs")
         self.model.to(self.device)
 
     def train(self):
         """Train model for `self.epochs` epochs"""
+        start_time = time.time()
+        print(f"running on {self.device}")
         for epoch in range(self.epochs):
             self._train_epoch()
             self._validate_epoch()
+            current_time = time.time()
             print(
                 f"""Epoch: {epoch+1}/{self.epochs} 
                 Train Loss={self.loss['train'][-1]:.5f},
-                Val Loss{self.loss['val'][-1]:.5f}"""
+                Val Loss={self.loss['val'][-1]:.5f}
+                Seconds Elapsed={current_time-start_time}"""
             )
             self.lr_scheduler.step()
 
@@ -56,6 +62,7 @@ class Trainer:
     def _train_epoch(self):
         self.model.train()
         running_loss = []
+        batches = len(self.train_dataloader)
 
         for i, batch_data in enumerate(self.train_dataloader, 1):
             inputs = batch_data[0].to(self.device)
@@ -66,6 +73,9 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             running_loss.append(loss.item())
+
+            if i % int(batches / 25) == 0:
+                print(f"Batch: {i} / {batches}")
 
             if i == self.train_steps:
                 break

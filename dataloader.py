@@ -5,12 +5,16 @@ Updated to avoid deprecated libraries like Torchtext
 """
 from functools import partial
 from collections import Counter
+import re
 from dataclasses import dataclass
+
+# from line_profiler import profile
 import torch
 from torch.utils.data import DataLoader
 from datasets import load_dataset
-import nltk
-from nltk.tokenize import word_tokenize
+
+# import nltk
+# from nltk.tokenize import word_tokenize
 from constants import (
     MIN_WORD_FREQUENCY,
     CBOW_N_WORDS,
@@ -18,7 +22,10 @@ from constants import (
     MAX_SEQUENCE_LENGTH,
 )
 
-nltk.download("punkt")  # for tokenizer
+# nltk.download("punkt")  # for tokenizer
+# 12751034 re2 in function
+# 376333 re in line
+# 409510 re in function
 
 
 def get_dataset(ds_name: str = "wikitext-2-v1"):
@@ -36,12 +43,27 @@ class Vocab:
     idx_to_word: list
 
 
+TOKENIZER = re.compile(r"\w+")
+
+
+def tokenize(text):
+    """basic tokenizer"""
+    # the pervious solution was word_tokenizer from nltk
+    return TOKENIZER.findall(text.lower())
+
+
 def build_vocab(dataset):
     """Builds vocabulary from dataset"""
     word_freq = Counter()
 
+    # for text in dataset["text"]:
+    #     word_freq.update(tokenize(text))
+    # optimized below by adding everything to counter in a big batch
+
+    all_tokens = []
     for text in dataset["text"]:
-        word_freq.update(word_tokenize(text))
+        all_tokens.extend(tokenize(text))
+    word_freq.update(all_tokens)
 
     vocab = {
         word: freq for word, freq in word_freq.items() if freq >= MIN_WORD_FREQUENCY
@@ -75,8 +97,8 @@ def collate_cbow(batch, word_to_idx):
     Each element in `batch_output` is the middel / i-th word
     """
     batch_input, batch_output = [], []
-    for text in batch:
-        text_tokens_ids = [word_to_idx.get(word, 0) for word in word_tokenize(text)]
+    for b in batch:
+        text_tokens_ids = [word_to_idx.get(word, 0) for word in tokenize(b["text"])]
 
         # if the sentence is too short to extract CBOW, skip
         if len(text_tokens_ids) < CBOW_N_WORDS * 2 + 1:
@@ -111,8 +133,9 @@ def collate_skipgram(batch, word_to_idx):
     Each element in `batch_output` is one of SKIPGRAM_N_WORDS * 2 context words
     """
     batch_input, batch_output = [], []
-    for text in batch:
-        text_tokens_ids = [word_to_idx.get(word, 0) for word in word_tokenize(text)]
+    for b in batch:
+        if isinstance(b["text"], str):
+            text_tokens_ids = [word_to_idx.get(word, 0) for word in tokenize(b["text"])]
 
         # if the sentence is too short to extract CBOW, skip
         if len(text_tokens_ids) < SKIPGRAM_N_WORDS * 2 + 1:
@@ -157,7 +180,7 @@ def get_dataloader_and_vocab(
     if model_class == "CBOWModel":
         collate_fn = partial(collate_cbow, word_to_idx=vocab.word_to_idx)
     elif model_class == "SkipGramModel":
-        pass
+        collate_fn = partial(collate_skipgram, word_to_idx=vocab.word_to_idx)
     else:
         raise ValueError("Model should be: cbow, skipgram")
 

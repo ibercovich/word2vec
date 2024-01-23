@@ -15,22 +15,23 @@ from trainer import Trainer
 
 def train():
     """main function to coordinate training"""
-    model_class = "CBOWModel"  # "SkipGramModel"
-    model_dir = model_class + "_data"
-    ds_name = "wikitext-2-v1"  # "wikitext-103-v1"
+    model_class = "CBOWModel"  # "SkipGramModel"  "CBOWModel"
+    ds_name = "wikitext-2-v1"  # "wikitext-103-v1"   "wikitext-2-v1"
+    model_dir = f"{model_class}_{ds_name}_data"
     batch_size = 96
     shuffle = True
     learning_rate = 0.025
     epochs = 5
-    checkpoint_frequency = 100_000
+    checkpoint_frequency = 5_000
 
-    os.makedirs(model_class)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
 
     train_dataloader, vocab = get_dataloader_and_vocab(
         model_class=model_class,
         ds_name=ds_name,
         batch_size=batch_size,
-        ds_type="test", # "train"
+        ds_type="train", # "train"
         shuffle=shuffle,
     )
 
@@ -65,6 +66,7 @@ def train():
 
     trainer = Trainer(
         model=model,
+        model_dir=model_dir,
         epochs=epochs,
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
@@ -81,7 +83,7 @@ def train():
     trainer.save_loss()
 
     vocab_path = os.path.join(model_dir, "vocab.pkl")
-    with open(vocab_path, "w", encoding="utf-8") as file:
+    with open(vocab_path, "wb") as file:
         pickle.dump(vocab, file)
 
     print("Model artifacts saved to folder: ", model_dir)
