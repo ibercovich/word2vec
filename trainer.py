@@ -1,18 +1,16 @@
 """
 Word2Vec from Scratch: Trainer
-Based on https://github.com/OlgaChernytska/word2vec-pytorch
-Updated to avoid deprecated libraries like Torchtext
 """
 import os
 import time
 import json
-from typing import Any
 from dataclasses import dataclass
-# from line_profiler import profile
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch import optim
+from torch.optim.lr_scheduler import LambdaLR
+from dataloader import W2VDataLoader
 
 
 @dataclass
@@ -22,12 +20,9 @@ class Trainer:
 
     model: nn.Module
     epochs: int
-    train_dataloader: DataLoader
-    val_dataloader: DataLoader
+    learning_rate: float
+    dataloader: W2VDataLoader
     model_dir: str
-    criterion: Any
-    optimizer: Any
-    lr_scheduler: Any
     train_steps: int = None  # limit the number of steps
     val_steps: int = None  # limit the number of steps
     checkpoint_frequency: int = None  # number of steps between saves
@@ -35,9 +30,19 @@ class Trainer:
     def __post_init__(self):
         self.loss = {"train": [], "val": []}
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if torch.cuda.device_count() > 1:
-            self.model = nn.DataParallel(self.model)
-            print(f"Using {torch.cuda.device_count()} GPUs")
+        # if torch.cuda.device_count() > 1:
+        #     self.model = nn.DataParallel(self.model)
+        #     print(f"Using {torch.cuda.device_count()} GPUs")
+        self.criterion = nn.CrossEntropyLoss()  # loss function
+
+        # set up optimizer (e.g. gradient descent calculation) and learning rate scheduler
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.lr_scheduler = LambdaLR(
+            self.optimizer,
+            # variable learning rate that ends at 0 in the last epoch
+            lr_lambda=lambda epoch: (self.epochs - epoch) / self.epochs,
+            verbose=True,
+        )
         self.model.to(self.device)
 
     def train(self):
@@ -54,24 +59,24 @@ class Trainer:
                 Val Loss={self.loss['val'][-1]:.5f}
                 Seconds Elapsed={current_time-start_time}"""
             )
-            self.lr_scheduler.step()
+            self.lr_scheduler.step()  # adjust learning rate
 
             if self.checkpoint_frequency:
                 self._save_checkpoint(epoch)
 
     def _train_epoch(self):
-        self.model.train()
+        self.model.train()  # train mode for model
         running_loss = []
-        batches = len(self.train_dataloader)
+        batches = len(self.dataloader.train)
 
-        for i, batch_data in enumerate(self.train_dataloader, 1):
+        for i, batch_data in enumerate(self.dataloader.train, 1):
             inputs = batch_data[0].to(self.device)
             labels = batch_data[1].to(self.device)
-            self.optimizer.zero_grad()
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs, labels)
-            loss.backward()
-            self.optimizer.step()
+            self.optimizer.zero_grad()  # clear gradient
+            outputs = self.model(inputs)  # generate predictions from current model
+            loss = self.criterion(outputs, labels)  # calculate loss
+            loss.backward()  # calculate derivative
+            self.optimizer.step()  # apply gradient descent to model
             running_loss.append(loss.item())
 
             if i % int(batches / 25) == 0:
@@ -88,7 +93,7 @@ class Trainer:
         running_loss = []
 
         with torch.no_grad():
-            for i, batch_data in enumerate(self.val_dataloader, 1):
+            for i, batch_data in enumerate(self.dataloader.val, 1):
                 inputs = batch_data[0].to(self.device)
                 labels = batch_data[1].to(self.device)
                 outputs = self.model(inputs)

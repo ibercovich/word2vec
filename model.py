@@ -1,10 +1,16 @@
 """
 Word2Vec from Scratch: Models
-Based on https://github.com/OlgaChernytska/word2vec-pytorch
-Updated to avoid deprecated libraries like Torchtext
 """
+from dataclasses import dataclass
 import torch.nn as nn
-from constants import EMBED_DIMENSION, EMBED_MAX_NORM
+
+# constants to pre-process data and build vocab
+MIN_WORD_FREQUENCY = 50
+MAX_SEQUENCE_LENGTH = 256
+
+# embedding constants
+EMBED_DIMENSION = 300
+EMBED_MAX_NORM = 1  # keep embedding values low
 
 
 class SkipGramModel(nn.Module):
@@ -47,7 +53,7 @@ class CBOWModel(SkipGramModel):
     Implementation of CBOW model described in paper:
     https://arxiv.org/abs/1301.3781
 
-    Note that this class extends SkipGram because the 
+    Note that this class extends SkipGram because the
     network is identical with the exception that the input
     in this case is a group of words instead of one
     which is handled differently in the forward pass
@@ -70,3 +76,16 @@ class CBOWModel(SkipGramModel):
         x = x.mean(axis=1)
         x = self.linear(x)
         return x
+
+
+@dataclass
+class ModelConfig:
+    """class to store Model configuration"""
+
+    name: str
+    model: nn.Module
+    n_words: int
+
+
+CBOW_CONFIG = ModelConfig(name="CBOWModel", model=CBOWModel, n_words=4)
+SKIPGRAM_CONFIG = ModelConfig(name="SkipGramModel", model=SkipGramModel, n_words=4)
