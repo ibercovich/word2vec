@@ -355,7 +355,7 @@ class Trainer:
 
 
 #######################################
-# Actual Training Script 
+# Actual Training Script
 ######################################
 
 MODEL_CONFIG = ModelConfig(name="CBOWModel", model=CBOWModel, n_words=4)
@@ -364,7 +364,7 @@ MODEL_CONFIG = ModelConfig(name="CBOWModel", model=CBOWModel, n_words=4)
 
 def train():
     """main function to coordinate training"""
-    model_config = MODEL_CONFIG 
+    model_config = MODEL_CONFIG
     ds_name = "wikitext-2-v1"  # "wikitext-103-v1" (large) ,  "wikitext-2-v1" (small)
     model_dir = f"{model_config.name}_{ds_name}_data"
     batch_size = 96
