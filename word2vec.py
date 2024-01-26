@@ -17,22 +17,6 @@ from torch import optim
 from torch.optim.lr_scheduler import LambdaLR
 
 ##########################################################################
-# Some configurable hyper-parameters
-##########################################################################
-
-# constants to pre-process data and build vocab
-MIN_WORD_FREQUENCY = 50
-MAX_SEQUENCE_LENGTH = 256
-
-# embedding constants
-EMBED_DIMENSION = 300
-EMBED_MAX_NORM = 1  # keep embedding values low
-
-MODEL_CONFIG = ModelConfig(name="CBOWModel", model=CBOWModel, n_words=4)
-# MODEL_CONFIG = ModelConfig(name="SkipGramModel", model=SkipGramModel, n_words=4)
-DS_NAME = "wikitext-2-v1"  # "wikitext-103-v1" (large) ,  "wikitext-2-v1" (small)
-
-##########################################################################
 # A couple classes for typing hygiene
 ##########################################################################
 
@@ -52,6 +36,20 @@ class Vocab:
 
     word_to_idx: dict
     idx_to_word: list
+
+
+##########################################################################
+# Some configurable hyper-parameters
+##########################################################################
+
+
+# constants to pre-process data and build vocab
+MIN_WORD_FREQUENCY = 50
+MAX_SEQUENCE_LENGTH = 256
+
+# embedding constants
+EMBED_DIMENSION = 300
+EMBED_MAX_NORM = 1  # keep embedding values low
 
 
 ##########################################################################
@@ -382,6 +380,10 @@ class Trainer:
 ##########################################################################
 # Short routine to initialize model and dataloader, and run the trainer
 ##########################################################################
+
+MODEL_CONFIG = ModelConfig(name="CBOWModel", model=CBOWModel, n_words=4)
+# MODEL_CONFIG = ModelConfig(name="SkipGramModel", model=SkipGramModel, n_words=4)
+DS_NAME = "wikitext-2-v1"  # "wikitext-103-v1" (large) ,  "wikitext-2-v1" (small)
 
 
 def train():
