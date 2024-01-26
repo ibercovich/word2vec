@@ -16,6 +16,10 @@ from torch.utils.data import DataLoader
 from torch import optim
 from torch.optim.lr_scheduler import LambdaLR
 
+##########################################################################
+# Some configurable hyper-parameters
+##########################################################################
+
 # constants to pre-process data and build vocab
 MIN_WORD_FREQUENCY = 50
 MAX_SEQUENCE_LENGTH = 256
@@ -23,6 +27,36 @@ MAX_SEQUENCE_LENGTH = 256
 # embedding constants
 EMBED_DIMENSION = 300
 EMBED_MAX_NORM = 1  # keep embedding values low
+
+MODEL_CONFIG = ModelConfig(name="CBOWModel", model=CBOWModel, n_words=4)
+# MODEL_CONFIG = ModelConfig(name="SkipGramModel", model=SkipGramModel, n_words=4)
+DS_NAME = "wikitext-2-v1"  # "wikitext-103-v1" (large) ,  "wikitext-2-v1" (small)
+
+##########################################################################
+# A couple classes for typing hygiene
+##########################################################################
+
+
+@dataclass
+class ModelConfig:
+    """class to store Model configuration"""
+
+    name: str
+    model: nn.Module
+    n_words: int
+
+
+@dataclass
+class Vocab:
+    """class to store Vocabulary"""
+
+    word_to_idx: dict
+    idx_to_word: list
+
+
+##########################################################################
+# The actual models, which are very simple
+##########################################################################
 
 
 class SkipGramModel(nn.Module):
@@ -90,21 +124,10 @@ class CBOWModel(SkipGramModel):
         return x
 
 
-@dataclass
-class ModelConfig:
-    """class to store Model configuration"""
-
-    name: str
-    model: nn.Module
-    n_words: int
-
-
-@dataclass
-class Vocab:
-    """class to store Vocabulary"""
-
-    word_to_idx: dict
-    idx_to_word: list
+##########################################################################
+# The data loader fetches dataset and returns an iterable dataset
+# It also builds and returns the vocabulary
+##########################################################################
 
 
 @dataclass
@@ -119,13 +142,9 @@ class W2VDataLoader:
     model_dir: str = None
 
     def __post_init__(self):
-        valid_ds = ["wikitext-103-v1", "wikitext-2-v1"]
-        if self.ds_name not in valid_ds:
-            raise ValueError(f"valid ds_name: {valid_ds}")
-
         self.tokenizer = re.compile(r"\w+")
-
         self.dataset = load_dataset("wikitext", self.ds_name)
+
         if self.vocab is None:
             self.build_vocab()
             self.save_vocab()
@@ -242,6 +261,12 @@ class W2VDataLoader:
         return batch_input, batch_output
 
 
+##########################################################################
+# The Trainer class orchestrates the trainer.
+# This is where GPUs do most of the work (e.g. gradient descent)
+##########################################################################
+
+
 @dataclass
 # pylint: disable=too-many-instance-attributes
 class Trainer:
@@ -354,19 +379,17 @@ class Trainer:
             json.dump(self.loss, file)
 
 
-#######################################
-# Actual Training Script
-######################################
-
-MODEL_CONFIG = ModelConfig(name="CBOWModel", model=CBOWModel, n_words=4)
-# MODEL_CONFIG = ModelConfig(name="SkipGramModel", model=SkipGramModel, n_words=4)
+##########################################################################
+# Short routine to initialize model and dataloader, and run the trainer
+##########################################################################
 
 
 def train():
     """main function to coordinate training"""
     model_config = MODEL_CONFIG
-    ds_name = "wikitext-2-v1"  # "wikitext-103-v1" (large) ,  "wikitext-2-v1" (small)
+    ds_name = DS_NAME
     model_dir = f"{model_config.name}_{ds_name}_data"
+    # these could be moved to top as global hyper-parameters
     batch_size = 96
     shuffle = True
     learning_rate = 0.025
