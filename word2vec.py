@@ -1,5 +1,6 @@
 """
-Word2Vec from Scratch: Models
+Word2Vec from Scratch
+All in one file
 """
 from dataclasses import dataclass
 from collections import Counter
