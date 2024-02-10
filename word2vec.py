@@ -433,4 +433,15 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    # train()
+
+    model_class =  "SkipGramModel"  # "SkipGramModel"  "CBOWModel"
+    ds_name = "wikitext-2-v1"   # "wikitext-103-v1"   "wikitext-2-v1"
+    dir_path = f"{model_class}_{ds_name}_data"
+    model_path = os.path.join(dir_path, "model.pt") 
+    vocab_path = os.path.join(dir_path, "vocab.pkl") 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model = torch.load(model_path, map_location=device)
+    with open(vocab_path, 'rb') as file:
+        vocab = pickle.load(file)
